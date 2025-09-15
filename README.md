@@ -330,5 +330,115 @@ jobs:
 7. **Deploy** → Deploy only if everything else passes ✅.
 
 ---
+---
 
+# Common Structure:
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  # ------------------------------
+  # 1. Linting & Static Analysis
+  # ------------------------------
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Language runtime (choose Node, Python, Java, etc.)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.11"
+      # - uses: actions/setup-java@v4
+      #   with:
+      #     java-version: "17"
+
+      - run: npm install   # or pip install -r requirements.txt, mvn install
+      - run: npm run lint  # or pylint src/, flake8, checkstyle, etc.
+
+  # ------------------------------
+  # 2. Unit Tests
+  # ------------------------------
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: npm install
+      - run: npm run test:unit   # Replace with pytest, mvn test, etc.
+
+  # ------------------------------
+  # 3. Integration Tests
+  # ------------------------------
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run test:integration  # or pytest -m integration
+
+  # ------------------------------
+  # 4. End-to-End (E2E) Tests
+  # ------------------------------
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run test:e2e  # or cypress run, playwright test
+
+  # ------------------------------
+  # 5. Security Scan
+  # ------------------------------
+  security:
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm audit --audit-level=high || true
+      # Or: pip-audit, snyk, trivy, etc.
+
+  # ------------------------------
+  # 6. Build
+  # ------------------------------
+  build:
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install
+      - run: npm run build   # or mvn package, python setup.py build
+
+  # ------------------------------
+  # 7. Deploy
+  # ------------------------------
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      # Example: Deploy to Vercel
+      - run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Or: Deploy to AWS
+      # - uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ap-south-1
+      # - run: aws s3 sync build/ s3://my-bucket --delete
 
